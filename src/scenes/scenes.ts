@@ -10,17 +10,18 @@ export class MenuScene extends Phaser.Scene { create(){ this.add.text(260,250,'K
 export class IntroScene extends Phaser.Scene { create(){ const lines=['El caballero duerme...','Un brujo secuestra a los habitantes...','Un soldado herido pide ayuda...','Empieza: La Pradera']; let i=0; const t=this.add.text(100,300,'',{fontSize:'36px',wordWrap:{width:1000}}); const next=()=>{ if(i>=lines.length){this.scene.start('GameScene');return;} t.setText(lines[i++]); this.cameras.main.fadeIn(300); this.time.delayedCall(1700,next);} ; next(); } }
 
 export class GameScene extends Phaser.Scene {
-  player!: Player; hud!:HUD; enemies!: Phaser.GameObjects.Group; daggers!: Phaser.Physics.Arcade.Group; ropes!: Phaser.Physics.Arcade.Group; rocks!: Phaser.Physics.Arcade.Group; bossHp=10; bossActive=false;
+  player!: Player; hud!:HUD; enemies!: Phaser.Physics.Arcade.Group; daggers!: Phaser.Physics.Arcade.Group; ropes!: Phaser.Physics.Arcade.Group; rocks!: Phaser.Physics.Arcade.Group; bossZone!: Phaser.GameObjects.Zone; bossHp=10; bossActive=false;
   create(){
     const g=this.add.graphics(); g.fillStyle(0xffffff).fillRect(0,0,32,32); g.generateTexture('rect',32,32); g.destroy();
     this.physics.world.setBounds(0,0,WORLD_WIDTH,720); this.cameras.main.setBackgroundColor('#6cabdd');
     const platforms=this.physics.add.staticGroup(); meadowPlatforms.forEach(p=>platforms.create(p.x,p.y,'rect').setDisplaySize(p.w,p.h).setTint(0x3d8f3d).refreshBody());
     this.player=new Player(this,120,620); this.cameras.main.startFollow(this.player); this.cameras.main.setBounds(0,0,WORLD_WIDTH,720);
-    this.enemies=this.add.group(); meadowEnemies.forEach(e=>{const map:any={goblin:Goblin,armedGoblin:ArmedGoblin,fatGoblin:FatGoblin,femaleGoblin:FemaleGoblin,babyGoblin:BabyGoblin}; this.enemies.add(new map[e.type](this,e.x,e.y));});
+    this.enemies=this.physics.add.group(); meadowEnemies.forEach(e=>{const map:any={goblin:Goblin,armedGoblin:ArmedGoblin,fatGoblin:FatGoblin,femaleGoblin:FemaleGoblin,babyGoblin:BabyGoblin}; this.enemies.add(new map[e.type](this,e.x,e.y));});
     const powerups=this.physics.add.group(); meadowPowerups.forEach(p=>{ const colors:any={daggerBox:0x9ad1ff,ropeBox:0xd2b48c,shield:0xffff00,repairArmor:0xff0000}; powerups.add(new PowerUp(this,p.x,p.y,p.type,colors[p.type])); });
     const rescuables=this.physics.add.group(); meadowRescuables.forEach(r=>rescuables.add(new RescuableVillager(this,r.x,r.y,r.id,r.optional)));
     this.daggers=this.physics.add.group(); this.ropes=this.physics.add.group(); this.rocks=this.physics.add.group();
-    this.physics.add.collider([this.player,this.enemies,this.daggers,this.ropes,this.rocks,powerups,rescuables],platforms);
+    const collidables = [this.player, this.enemies, this.daggers, this.ropes, this.rocks, powerups, rescuables];
+    collidables.forEach((obj) => this.physics.add.collider(obj, platforms));
     this.physics.add.overlap(this.player,powerups,(_,p:any)=>{ if(p.kind==='daggerBox') this.player.daggers+=3; if(p.kind==='ropeBox') this.player.ropes+=3; if(p.kind==='shield') this.player.shield+=2; if(p.kind==='repairArmor') this.player.hearts=3; p.destroy();});
     this.physics.add.overlap(this.player,rescuables,(_,r:any)=>{ this.player.rescued++; r.destroy();});
     this.physics.add.overlap(this.player,this.enemies,(_,e:any)=>this.handlePlayerEnemy(e));
@@ -28,6 +29,8 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.ropes,this.enemies,(r:any,e:any)=>{e.freeze(2000); r.destroy();});
     this.physics.add.overlap(this.rocks,this.player,()=>this.player.takeDamage(1));
     this.physics.add.overlap(this.daggers,this.rocks,(d:any,r:any)=>{d.destroy(); r.destroy();});
+    this.bossZone = this.add.zone(4920,590,180,160);
+    this.physics.add.existing(this.bossZone, true);
     this.hud=new HUD(this);
   }
   handlePlayerEnemy(enemy:any){
@@ -44,7 +47,7 @@ export class GameScene extends Phaser.Scene {
     if(this.player.x>3800 && !this.bossActive){ if(Phaser.Math.Between(0,100)<4) this.rocks.add(new RockProjectile(this,this.cameras.main.worldView.x+Phaser.Math.Between(300,1000),80)); }
     if(this.player.x>4600){ this.bossActive=true; }
     if(this.bossActive && this.bossHp>0 && Phaser.Math.Between(0,100)<2){ this.rocks.add(new RockProjectile(this,4800,120)); }
-    this.physics.overlap(this.daggers, this.add.zone(4920,590,180,160), (d:any)=>{ if(this.player.daggers===0 && d.y<560) this.bossHp=0; else this.bossHp--; d.destroy(); });
+    this.physics.overlap(this.daggers, this.bossZone, (d:any)=>{ if(this.player.daggers===0 && d.y<560) this.bossHp=0; else this.bossHp--; d.destroy(); });
     if(this.bossHp<=0){ this.scene.start('LevelCompleteScene'); }
     if(this.player.hearts<=0){ this.scene.start('GameOverScene'); }
     this.hud.update(this.player,'La Pradera', this.bossActive?this.bossHp:undefined);
