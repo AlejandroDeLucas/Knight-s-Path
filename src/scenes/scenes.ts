@@ -14,6 +14,7 @@ export class MenuScene extends Phaser.Scene {
   create() {
     // Fondo claro para evitar pantalla negra sin feedback.
     this.cameras.main.setBackgroundColor('#1f2a44');
+    this.add.rectangle(640, 360, 1280, 720, 0x1f2a44);
     this.add.text(120, 90, 'Knight\'s Path', { fontSize: '56px', color: '#ffe08a' });
     this.add.text(120, 160, 'Selecciona una opción con flechas y ENTER', { fontSize: '22px', color: '#ffffff' });
 
